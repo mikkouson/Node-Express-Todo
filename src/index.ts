@@ -1,7 +1,7 @@
 import express from "express";
 import pool from "./db.js";
 import multer from "multer";
-import { body, validationResult } from "express-validator";
+import { body, query, validationResult } from "express-validator";
 const upload = multer();
 import type { Request, Response } from "express";
 
@@ -75,29 +75,32 @@ app.post(
   },
 );
 
-// UPDATE task
-app.put("/tasks/:id", async (req, res) => {
+// update
+app.put("/task/update/:id", upload.none(), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, is_active } = req.body;
 
+    const existing = await pool.query(
+      `select * from public.tasks where id = $1`,
+      [id],
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(500).json({ message: "task not found" });
+    }
     const result = await pool.query(
-      `UPDATE public.tasks
-       SET title = $1,
-           is_active = $2
-       WHERE id = $3
-       RETURNING *`,
+      `update public.tasks set title  = $1, is_active = $2 where id = $3 and  (title is distinct from $1 or is_active is distinct from $2) returning *`,
       [title, is_active, id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Task not found" });
+      return res.status(404).json({ message: "no changes found" });
     }
-
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Database Error" });
+    res.status(500).json({ error: "database error" });
   }
 });
 
@@ -121,8 +124,6 @@ app.delete("/tasks/:id", async (req, res) => {
     res.status(500).json({ error: "Database Error" });
   }
 });
-
-/* ------------------------------------------- */
 
 const PORT = process.env.PORT || 3000;
 
