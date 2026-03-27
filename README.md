@@ -122,15 +122,22 @@ Create a `nodemon.json` file in your root folder. This tells nodemon to watch yo
 ```
 
 ### 7. Database Creation & Structure
-Run this SQL script in your PostgreSQL shell or pgAdmin to create the required table:
+Run this SQL script in your PostgreSQL shell or pgAdmin to create the required tables:
 ```sql
 CREATE DATABASE express_todo_ts;
 
 -- Connect to express_todo_ts and then run:
+CREATE TABLE public.users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE public.tasks (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    is_active BOOLEAN DEFAULT true
+    is_active BOOLEAN DEFAULT true,
+    user_id INTEGER REFERENCES public.users(id)
 );
 ```
 
@@ -143,6 +150,7 @@ DB_USER=postgres
 DB_PASSWORD=your_password
 DB_NAME=express_todo_ts
 PORT=3000
+JWT_SECRET=your_jwt_secret
 ```
 Also create a `.env.example` file omitting the real password to share via version control.
 
@@ -169,15 +177,21 @@ export default pool;
 ```
 
 **`src/index.ts`**
-Sets up the Express server, `multer` middleware, and contains all the CRUD route handlers (GET, POST, PUT, DELETE) validating data with `express-validator` and saving it to Postgres.
+Sets up the Express server, `multer` middleware, and contains all the CRUD route handlers (GET, POST, PUT, DELETE) and authentication routes (Register, Login), validating data with `express-validator` and saving it to Postgres.
 
 ## 📝 API Endpoints
 
+### Authentication
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/` | Checks if API is running |
-| `GET` | `/tasks` | Retrieves all tasks |
+| `POST` | `/register` | Register a new user (`username`, `password` required) |
+| `POST` | `/login` | Login and receive a JWT token |
+
+### Tasks (Requires Authorization header: `Bearer <token>`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/tasks` | Retrieves all tasks for the logged-in user |
 | `GET` | `/tasks/:id` | Retrieves a single task based on ID |
-| `POST` | `/tasks/store` | Creates a new task (`title` required, `is_active` optional) |
+| `POST` | `/tasks/store` | Creates a new task (`title` required) |
 | `PUT` | `/tasks/:id` | Updates an existing task by specifying ID |
-| `DELETE`| `/tasks/:id` | Soft/hard deletes a specific task |
+| `DELETE`| `/tasks/:id` | Deletes a specific task |
